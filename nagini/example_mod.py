@@ -1,3 +1,6 @@
+
+__all__ = ['primes', 'test']
+
 def primes(imax):
     """
     Returns prime numbers up to imax.
@@ -75,3 +78,8 @@ def main(args=None):
 
     if res.prnt:
         print('Primes: {0}'.format(primes))
+
+
+def test():
+    from . import hello
+    return hello.hello("world")

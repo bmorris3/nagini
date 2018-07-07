@@ -4,6 +4,9 @@
 import glob
 import os
 import sys
+import numpy as np
+from setuptools import Extension
+from Cython.Build import cythonize
 
 try:
     from configparser import ConfigParser
@@ -145,7 +148,9 @@ setup(name=PACKAGENAME,
       cmdclass=cmdclassd,
       zip_safe=False,
       use_2to3=False,
+      include_dirs=[np.get_include()],
       entry_points=entry_points,
       python_requires='>={}'.format(__minimum_python_version__),
-      **package_info
+      ext_modules=cythonize("nagini/overlap.pyx")
+      # **package_info
 )
