@@ -257,7 +257,7 @@ class STSP(object):
         # Normalize light curve to unity
         real_max = 1
 
-        times = self.times.jd
+        times = self.times
         fluxes = np.ones_like(times)
 
         np.savetxt(self.model_path, np.vstack([times, fluxes, fluxes]).T,
@@ -312,7 +312,7 @@ class STSP(object):
         # Read the outputs
         lcout_path = os.path.join(self.outdir, 'test_lcout.txt')
         if not os.path.exists(lcout_path) or os.stat(lcout_path).st_size == 0:
-            stsp_times = self.times.jd
+            stsp_times = self.times
             stsp_fluxes = np.ones(len(self.times))
             stsp_flag = 0 * np.ones(len(self.times))
 
@@ -322,7 +322,7 @@ class STSP(object):
                                  format='fast_no_header')
                 stsp_times, stsp_fluxes, stsp_flag = tbl['col1'], tbl['col4'].data, tbl['col5']
             except InconsistentTableError:
-                stsp_times = self.times.jd
+                stsp_times = self.times
                 stsp_fluxes = np.ones(len(self.times)) * np.nan
                 stsp_flag = 0 * np.ones(len(self.times))
         return LightCurve(times=stsp_times, fluxes=stsp_fluxes, quarters=stsp_flag)

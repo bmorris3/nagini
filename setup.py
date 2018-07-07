@@ -148,9 +148,8 @@ setup(name=PACKAGENAME,
       cmdclass=cmdclassd,
       zip_safe=False,
       use_2to3=False,
-      include_dirs=[np.get_include()],
       entry_points=entry_points,
       python_requires='>={}'.format(__minimum_python_version__),
-      ext_modules=cythonize("nagini/overlap.pyx")
-      # **package_info
+      # ext_modules=cythonize("nagini/overlap.pyx")
+      **package_info
 )
