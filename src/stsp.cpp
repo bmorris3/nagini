@@ -2983,7 +2983,6 @@ int initializestarplanet(stardata *star,planetdata planet[MAXPLANETS],char filen
 
 	if(filereadd(1,x,datastr,&a,e)<0)
 		return -4;
-
 	numplanets=(int)x[0];
 #	if !QUIET
 		printf("number of planets (%i)\n",numplanets);
@@ -3007,10 +3006,6 @@ int initializestarplanet(stardata *star,planetdata planet[MAXPLANETS],char filen
 		x[6]=x[6]*PI/180.0;
 		planet[i].thetaorbit=acos(cos(x[6])*sin(x[5]));
 		planet[i].phiorbit=atan2((-1.0)*sin(x[6])*sin(x[5]),cos(x[5]));
-
-        printf("x[0] x[1] %lf %lf %lf %lf %lf %lf %lf %lf", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]);
-
-
 		if(planet[i].thetaorbit<0)
 			planet[i].thetaorbit*=(-1.0);
 		if(planet[i].phiorbit<0)
@@ -3330,407 +3325,6 @@ int initializestarplanet(stardata *star,planetdata planet[MAXPLANETS],char filen
 	}
 	return i;
 }
-
-
-int initializestarplanetfileless(stardata *star,planetdata planet[MAXPLANETS],char filename[64],double *lcstarttime,double *lcfinishtime,double *lcmaxlight,double *ascale,int *mcmcnpop,long int *mcmcmaxstepsortime,int *partitionpop,int *partitionsteps,double *readparam,int *randomseed,char seedfilename[64])
-{
-	int i,a,b,e;
-	char str[128],datastr[32768];
-	double stardensity,ppdays;
-	double lda[5];		//limb darkening coeffecients (really just 4)
-
-
-	double x[9] = {1.000000, 1.500000, 0.003869, 0.120000, 0.732000, 90, 0.000000, 0.000000};
-
-	e=prepfileread(filename,datastr,32768);
-	if(e==0)
-		return -1;
-	else if(e<0)
-		return -2;
-
-	a=0;
-	if(filereads(str,datastr,&a,e)<0)
-		return -3;
-	if(str[0]!='#')	//planet properties
-		return -3;
-
-	if(filereadd(1,x,datastr,&a,e)<0)
-		return -4;
-
-	numplanets=(int)x[0];
-#	if !QUIET
-		printf("number of planets (%i)\n",numplanets);
-#	endif
-	if(numplanets>MAXPLANETS)
-	{
-		printf("too many planets\n");
-		return -5;
-	}
-
-	planet[0].lct0=0.0;	//in case numplanets==0
-	for(i=0;i<numplanets;i++)
-	{
-		if(filereadd(9,x,datastr,&a,e)<0)
-			return -6;
-		planet[i].lct0=x[0];
-		planet[i].omegaorbit=PIt2/(x[1]*86400.0);
-		ppdays=x[1];
-		planet[i].rsq=x[2]; //needs to be multipled by star->rsq
-		x[5]=x[5]*PI/180.0;
-		x[6]=x[6]*PI/180.0;
-		planet[i].thetaorbit=acos(cos(x[6])*sin(x[5]));
-		planet[i].phiorbit=atan2((-1.0)*sin(x[6])*sin(x[5]),cos(x[5]));
-
-		if(planet[i].thetaorbit<0)
-			planet[i].thetaorbit*=(-1.0);
-		if(planet[i].phiorbit<0)
-			planet[i].phiorbit+=PIt2;
-		if(x[7]==0&&x[8]==0)
-		{
-			planet[i].orbitangleomega=PIo2;
-			planet[i].eccentricity=0;
-		}
-		else if(x[7]==0)
-		{
-			planet[i].orbitangleomega=PIo2;
-			planet[i].eccentricity=x[8];
-		}
-		else
-		{
-			planet[i].orbitangleomega=atan2(x[8],x[7]);
-			planet[i].eccentricity=x[7]/cos(planet[i].orbitangleomega);
-		}
-//		planet[i].orbitangleomega+=PI;  //not PIo2;	//because 90 degrees is star at far focus, not near focus
-//		if(planet[i].orbitangleomega>=PIt2)
-//			planet[i].orbitangleomega-=PIt2;	perhaps we thought better of this?
-
-#		if !QUIET
-			printf("planet %i\n orbit theta= %0.9lf (%lf degrees)\n orbit phi= %0.9lf (%lf degrees)\n",i,planet[i].thetaorbit,planet[i].thetaorbit*180.0/PI,planet[i].phiorbit,planet[i].phiorbit*180/PI);
-			printf(" eccentricity= %lf\n orbit angle omega= %lf (%lf degrees)\n",planet[i].eccentricity,planet[i].orbitangleomega,planet[i].orbitangleomega*180.0/PI);
-#		endif
-/*		planet[i].thetaorbit=90.0-x[5];
-		if(planet[i].thetaorbit<0)
-			planet[i].thetaorbit*=(-1);
-		planet[i].thetaorbit*=PI/180.0;
-		planet[i].phiorbit=0.0;  */
-	}
-
-    printf("x: %lf %lf %lf %lf %lf %lf %lf %lf\n", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]);
-
-	if(filereads(str,datastr,&a,e)<0)
-		return -7;
-//	if(str[0]!='#')		//star properties
-//		return -7;
-
-	if(filereadd(5,x,datastr,&a,e)<0)
-		return -8;
-	stardensity=x[0];
-	if(x[1]!=0.0)
-		star->omega=PIt2/(x[1]*86400.0);
-	else
-		star->omega=0.0;
-	star->theta=x[4]*PI/180.0;
-
-	if(inifilereaderld(datastr,&a,e,lda)<0)
-		return -9;
-
-	if(filereadd(1,x,datastr,&a,e)<0)
-		return -9;
-	NLDRINGS=(int)x[0];
-	if(NLDRINGS>MAXNLDRINGS)
-	{
-		printf("too many rings\n");
-		return -9;
-	}
-
-//    printf("x: %lf %lf %lf %lf %lf %lf %lf %lf\n", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]);
-	if(filereads(str,datastr,&a,e)<0)
-		return -10;
-//	if(str[0]!='#')		//spot properties
-//		return -10;
-
-	double xtwo[6] = {6, 0.7, 0.0, 12.00000, 996.942768414, 0};
-
-//	if(filereadd(2,x,datastr,&a,e)<0)
-//		return -11;
-
-//    a++;
-
-	numspots=(int)xtwo[0];
-#	if !QUIET
-		printf("number of spots (%i)\n",numspots);
-#	endif
-	if(numspots>MAXSPOTS)
-	{
-		printf("too many spots\n");
-		return -12;
-	}
-	spotfracdark=1.0-xtwo[1];
-
-	if(filereads(str,datastr,&a,e)<0)
-		return -13;
-//	if(str[0]!='#')		//light curve
-//		return -13;
-
-//	if(filereads(filename,datastr,&a,e)<0)
-//		return -14;
-
-    // redefine filename to light curve data filename
-    filename = "model_lc.dat";
-
-#	if !QUIET
-		printf("filename for lightcurve data (%s)\n",filename);
-#	endif
-//	if(filereadd(4,x,datastr,&a,e)<0)
-//		return -15;
-
-    a++;
-    a++;
-    a++;
-    a++;
-
-//	*lcstarttime=x[0];
-//	*lcfinishtime=x[0]+x[1];
-//	*lcmaxlight=x[2];
-
-	*lcstarttime=xtwo[2];
-	*lcfinishtime=xtwo[2]+xtwo[3];
-	*lcmaxlight=xtwo[4];
-
-	if((*lcmaxlight)==0)
-	{
-		USEDOWNFROMMAX=1;
-#		if !QUIET
-			printf("using down from max (%i)\n",DOWNFROMMAX);
-#		endif
-	}
-	else
-		USEDOWNFROMMAX=0;
-//	FLATTENMODEL=(int)x[3];
-	FLATTENMODEL=(int)xtwo[5];
-#	if !QUIET
-		if(FLATTENMODEL)
-			printf("flattening model light curve\n");
-		else
-			printf("not flattening model light curve\n");
-#	endif
-	star->r=1.0;
-	if(!initldrings(star,lda))
-		return -31;
-	star->maxlight=0.0;
-	for(i=NLDRINGS-1;i>=0;i--)
-		star->maxlight+=PI*star->ringr[i]*star->ringr[i]*star->dintensity[i];
-	star->rsq=star->r*star->r;
-	star->area=PI*star->rsq;
-	star->brightnessfactor=1.0;
-
-	for(i=0;i<numplanets;i++)
-	{
-		double cw90,sw90,st,ct,sf,cf,p;
-		planet[i].rsq*=star->rsq;
-		planet[i].r=sqrt(planet[i].rsq);
-		planet[i].area=PI*planet[i].rsq;
-		planet[i].orbitsemimajor=pow(ppdays/365.24218967,2.0/3.0)*pow(stardensity,1.0/3.0)*214.939469384;
-#		if !QUIET
-			printf("planet %i orbit semimajor axis= %lf\n",i,planet[i].orbitsemimajor);
-#		endif
-		cw90=cos(planet[i].orbitangleomega-PIo2);
-		sw90=sin(planet[i].orbitangleomega-PIo2);
-		ct=cos(planet[i].thetaorbit);
-		st=sin(planet[i].thetaorbit);
-		cf=cos(planet[i].phiorbit);
-		sf=sin(planet[i].phiorbit);
-		p=sqrt(st*st*sf*sf+ct*ct);
-		planet[i].xhat[0]=cw90*p;
-		planet[i].xhat[1]=(sw90*ct-cw90*st*st*sf*cf)/p;
-		planet[i].xhat[2]=(-cw90*st*ct*cf-sw90*st*sf)/p;
-		planet[i].yhat[0]=(-sw90*p);
-		planet[i].yhat[1]=(sw90*st*st*sf*cf+cw90*ct)/p;
-		planet[i].yhat[2]=(sw90*st*ct*cf-cw90*st*sf)/p;
-		planetsetmiddleoftransit(planet,i);
-	}
-
-//	if(filereads(str,datastr,&a,e)<0)
-//		return -16;
-//	if(str[0]!='#')		//action
-//		return -16;
-//
-//	if(filereads(str,datastr,&a,e)<0)
-//		return -17;
-
-//    sprintf(str[0], "%s", "l");
-
-//	if(str[0]!='L'&&str[0]!='l'&&str[0]!='H'&&str[0]!='h'&&str[0]!='S'&&str[0]!='s'&&str[0]!='D'&&str[0]!='d'&&str[0]!='T'&&str[0]!='t'&&str[0]!='x'&&str[0]!='X'&&str[0]!='f'&&str[0]!='F'&&str[0]!='p'&&str[0]!='P'&&str[0]!='u'&&str[0]!='U'&&str[0]!='I'&&str[0]!='i'&&str[0]!='a'&&str[0]!='A')
-//		i=0;  //unseeded mcmc
-//	else if(str[0]=='l')
-//		i=1;	//generate light curve and vis file from parameters
-//	else if(str[0]=='H'||str[0]=='h')
-//		i=2;	//metropolis-hastings
-//	else if(str[0]=='s')
-//		i=3;	//single seeded mcmc from parameters
-//	else if(str[0]=='D'||str[0]=='d')
-//		i=4;	//debug
-//	else if(str[0]=='T'||str[0]=='t')
-//		i=5;	//totally seeded mcmc
-//	else if(str[0]=='L')
-//		i=6;	//generate light curve and vis file from parameter file
-//	else if(str[0]=='S')
-//		i=7;	//single seeded mcmc from parameter file
-//	else if(str[0]=='f'||str[0]=='F')
-//	{
-//		FIXTHETAS=1;
-//		if(str[1]=='s')
-//			i=3;
-//		else if(str[1]=='S')
-//			i=7;
-//		else if(str[1]=='T'||str[1]=='t')
-//			i=5;
-//		else
-//			i=8;	//unseeded mcmc with fixed theta
-//	}
-//	else if(str[0]=='p'||str[0]=='P')
-//		i=9;	//plot chi squared over variation of one spot
-//	else if(str[0]=='u'||str[0]=='U')
-//		i=10;	//partially seeded mcmc
-//	else if(str[0]=='i'||str[0]=='I')
-//		i=11;
-//	else if(str[0]=='a')
-//		i=12;
-//	else if(str[0]=='A')
-//		i=13;
-//	else if(str[0]=='x')
-//		i=100;	//x
-//	else
-//		i=101;	//X
-
-    i = 1;
-    printf("i %d", i);
-
-	numseeded=0;  //unless set below
-//	if(i==0||i==3||i==5||i==7||i==8||i==10)
-//	{
-//		if(filereadd(5,x,datastr,&a,e)<0)
-//			return -18;
-//		*randomseed=(int)x[0];
-//		*ascale=x[1];
-//		*mcmcnpop=(int)x[2];
-//		*mcmcmaxstepsortime=(long int)x[3];
-//		CALCBRIGHTNESSFACTOR=(char)x[4];
-//		if(i==3||i==7)
-//		{
-//			if(filereadd(2,x,datastr,&a,e)<0)
-//				return -19;
-//			sigmaradius=x[0];
-//			sigmaangle=x[1];
-//		}
-//		if(i==5||i==7)
-//		{
-//			if(filereads(seedfilename,datastr,&a,e)<0)
-//				return -20;
-//			if(i==7)
-//			{
-//				FILE *in;
-//				printf("parameter file: %s\n",seedfilename);
-//				in=fopen(seedfilename,"r");
-//				if(in==NULL)
-//					return -21;
-//				for(b=0;b<numspots*3+1;b++)
-//					fscanf(in,"%lf\n",&readparam[b]);
-//				fclose(in);
-//			}
-//		}
-//		else if(i==3)
-//		{
-//			if(filereadd(numspots*3+1,readparam,datastr,&a,e)<0)
-//				return -22;
-//		}
-//		else if(i==8)
-//		{
-//			if(filereadd(numspots,readparam,datastr,&a,e)<0)
-//				return -29;
-//
-//		}
-//		else if(i==10)
-//		{
-//			if(filereadd(2,x,datastr,&a,e)<0)
-//				return -30;
-//			if(x[0]>=numspots)
-//				return -31;
-//			numseeded=(int)x[0];	//number of seeded spots
-//			FIXSEEDEDONLYPHI=(int)x[1];
-//			if(FIXSEEDEDONLYPHI)         //only phi or fix none
-//			{
-//				if(filereadd(2,x,datastr,&a,e)<0)
-//					return -32;
-//				sigmaradius=x[0];
-//				sigmaangle=x[1];
-//			}
-//			if(filereadd(numseeded*3+1,readparam,datastr,&a,e)<0)
-//				return -33;
-//		}
-//	}
-//	else if(i==1||i==12)
-//    if (i==1||i==12)
-//	{
-//		if(filereadd(numspots*3+1,readparam,datastr,&a,e)<0)
-//				return -23;
-//	}
-//	else if(i==6||i==13)
-//	{
-//		if(filereads(seedfilename,datastr,&a,e)<0)
-//			return -24;
-//		FILE *in;
-//		printf("parameter file: %s\n",seedfilename);
-//		in=fopen(seedfilename,"r");
-//		for(b=0;b<numspots*3+1;b++)
-//			fscanf(in,"%lf\n",&readparam[b]);
-//		fclose(in);
-//		b=0;
-//		while(seedfilename[b]!=0&&b<64)
-//			b++;
-//		if(seedfilename[b]!=0)
-//			return -25;
-//		b-=13;
-//		if(seedfilename[b]=='p'&&seedfilename[b+1]=='a'&&seedfilename[b+2]=='r'&&seedfilename[b+3]=='a'&&seedfilename[b+4]=='m'&&seedfilename[b+5]=='b'&&seedfilename[b+6]=='e'&&seedfilename[b+7]=='s'&&seedfilename[b+8]=='t'&&seedfilename[b+9]=='.'&&seedfilename[b+10]=='t'&&seedfilename[b+11]=='x'&&seedfilename[b+12]=='t')
-//		{
-//			seedfilename[b]='t'; seedfilename[b+1]='v'; seedfilename[b+2]='i'; seedfilename[b+3]='s'; seedfilename[b+4]='.'; seedfilename[b+5]='t'; seedfilename[b+6]='x'; seedfilename[b+7]='t'; seedfilename[b+8]=0;
-//		}
-//		else
-//		{
-//			b+=13;
-//			seedfilename[b]='_';
-//			b++;
-//			seedfilename[b]='t'; seedfilename[b+1]='v'; seedfilename[b+2]='i'; seedfilename[b+3]='s'; seedfilename[b+4]='.'; seedfilename[b+5]='t'; seedfilename[b+6]='x'; seedfilename[b+7]='t'; seedfilename[b+8]=0;
-//		}
-//	}
-//	else if(i==2)
-//	{
-//		if(filereadd(3,x,datastr,&a,e)<0)
-//			return -26;
-//		*mcmcmaxstepsortime=(long int)x[0];
-//		sigmaradius=x[1];
-//		sigmaangle=x[2];
-//		if(filereadd(numspots*3+1,readparam,datastr,&a,e)<0)
-//			return -27;
-//	}
-//	else if(i==9)
-//	{
-//		if(filereadd(1,x,datastr,&a,e)<0)
-//			return -28;
-//		*randomseed=(int)x[0]; //using randomseed to hold number of spot to vary
-//		if(filereadd(numspots*3+1,readparam,datastr,&a,e)<0)
-//			return -29;
-//	}
-//	else if(i==11)
-//	{
-//		if(filereads(seedfilename,datastr,&a,e)<0)
-//			return -30;
-//		printf("time file: %s\n",seedfilename);
-//
-//	}
-	return i;
-}
-
 int lcreadline(FILE *in,double x[3])
 {	//returns -1 if hits eof
 	char datastr[128],ch;
@@ -6834,6 +6428,218 @@ int main(int argc,char *argv[])
 }
 
 
+int initializestarplanetfileless(stardata *star,planetdata planet[MAXPLANETS],char filename[64],double *lcstarttime,double *lcfinishtime,double *lcmaxlight,double *ascale,int *mcmcnpop,long int *mcmcmaxstepsortime,int *partitionpop,int *partitionsteps,double *readparam,int *randomseed,char seedfilename[64])
+{
+	int i,a,b,e;
+	char str[128],datastr[32768];
+	double stardensity,ppdays;
+	double lda[5];		//limb darkening coeffecients (really just 4)
+
+
+	double x[9] = {1.000000, 1.500000, 0.003869, 0.120000, 0.732000, 90, 0.000000, 0.000000};
+
+	e=prepfileread(filename,datastr,32768);
+	if(e==0)
+		return -1;
+	else if(e<0)
+		return -2;
+
+	a=0;
+	if(filereads(str,datastr,&a,e)<0)
+		return -3;
+	if(str[0]!='#')	//planet properties
+		return -3;
+
+	if(filereadd(1,x,datastr,&a,e)<0)
+		return -4;
+
+	numplanets=(int)x[0];
+#	if !QUIET
+		printf("number of planets (%i)\n",numplanets);
+#	endif
+	if(numplanets>MAXPLANETS)
+	{
+		printf("too many planets\n");
+		return -5;
+	}
+
+	planet[0].lct0=0.0;	//in case numplanets==0
+	for(i=0;i<numplanets;i++)
+	{
+		if(filereadd(9,x,datastr,&a,e)<0)
+			return -6;
+		planet[i].lct0=x[0];
+		planet[i].omegaorbit=PIt2/(x[1]*86400.0);
+		ppdays=x[1];
+		planet[i].rsq=x[2]; //needs to be multipled by star->rsq
+		x[5]=x[5]*PI/180.0;
+		x[6]=x[6]*PI/180.0;
+		planet[i].thetaorbit=acos(cos(x[6])*sin(x[5]));
+		planet[i].phiorbit=atan2((-1.0)*sin(x[6])*sin(x[5]),cos(x[5]));
+
+		if(planet[i].thetaorbit<0)
+			planet[i].thetaorbit*=(-1.0);
+		if(planet[i].phiorbit<0)
+			planet[i].phiorbit+=PIt2;
+		if(x[7]==0&&x[8]==0)
+		{
+			planet[i].orbitangleomega=PIo2;
+			planet[i].eccentricity=0;
+		}
+		else if(x[7]==0)
+		{
+			planet[i].orbitangleomega=PIo2;
+			planet[i].eccentricity=x[8];
+		}
+		else
+		{
+			planet[i].orbitangleomega=atan2(x[8],x[7]);
+			planet[i].eccentricity=x[7]/cos(planet[i].orbitangleomega);
+		}
+//		planet[i].orbitangleomega+=PI;  //not PIo2;	//because 90 degrees is star at far focus, not near focus
+//		if(planet[i].orbitangleomega>=PIt2)
+//			planet[i].orbitangleomega-=PIt2;	perhaps we thought better of this?
+
+#		if !QUIET
+			printf("planet %i\n orbit theta= %0.9lf (%lf degrees)\n orbit phi= %0.9lf (%lf degrees)\n",i,planet[i].thetaorbit,planet[i].thetaorbit*180.0/PI,planet[i].phiorbit,planet[i].phiorbit*180/PI);
+			printf(" eccentricity= %lf\n orbit angle omega= %lf (%lf degrees)\n",planet[i].eccentricity,planet[i].orbitangleomega,planet[i].orbitangleomega*180.0/PI);
+#		endif
+/*		planet[i].thetaorbit=90.0-x[5];
+		if(planet[i].thetaorbit<0)
+			planet[i].thetaorbit*=(-1);
+		planet[i].thetaorbit*=PI/180.0;
+		planet[i].phiorbit=0.0;  */
+	}
+
+//    printf("x: %lf %lf %lf %lf %lf %lf %lf %lf\n", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]);
+
+	if(filereads(str,datastr,&a,e)<0)
+		return -7;
+//	if(str[0]!='#')		//star properties
+//		return -7;
+
+	if(filereadd(5,x,datastr,&a,e)<0)
+		return -8;
+	stardensity=x[0];
+	if(x[1]!=0.0)
+		star->omega=PIt2/(x[1]*86400.0);
+	else
+		star->omega=0.0;
+	star->theta=x[4]*PI/180.0;
+
+	if(inifilereaderld(datastr,&a,e,lda)<0)
+		return -9;
+
+	if(filereadd(1,x,datastr,&a,e)<0)
+		return -9;
+	NLDRINGS=(int)x[0];
+	if(NLDRINGS>MAXNLDRINGS)
+	{
+		printf("too many rings\n");
+		return -9;
+	}
+
+//    printf("x: %lf %lf %lf %lf %lf %lf %lf %lf\n", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]);
+	if(filereads(str,datastr,&a,e)<0)
+		return -10;
+//	if(str[0]!='#')		//spot properties
+//		return -10;
+
+	double xtwo[6] = {6, 0.7, 0.0, 12.00000, 996.942768414, 0};
+
+//	if(filereadd(2,x,datastr,&a,e)<0)
+//		return -11;
+
+//    a++;
+
+	numspots=(int)xtwo[0];
+#	if !QUIET
+		printf("number of spots (%i)\n",numspots);
+#	endif
+	if(numspots>MAXSPOTS)
+	{
+		printf("too many spots\n");
+		return -12;
+	}
+	spotfracdark=1.0-xtwo[1];
+
+	if(filereads(str,datastr,&a,e)<0)
+		return -13;
+
+    filename = "model_lc.dat";
+
+#	if !QUIET
+		printf("filename for lightcurve data (%s)\n",filename);
+#	endif
+
+    a++;
+    a++;
+    a++;
+    a++;
+
+	*lcstarttime=xtwo[2];
+	*lcfinishtime=xtwo[2]+xtwo[3];
+	*lcmaxlight=xtwo[4];
+
+	if((*lcmaxlight)==0)
+	{
+		USEDOWNFROMMAX=1;
+#		if !QUIET
+			printf("using down from max (%i)\n",DOWNFROMMAX);
+#		endif
+	}
+	else
+		USEDOWNFROMMAX=0;
+	FLATTENMODEL=(int)xtwo[5];
+#	if !QUIET
+		if(FLATTENMODEL)
+			printf("flattening model light curve\n");
+		else
+			printf("not flattening model light curve\n");
+#	endif
+	star->r=1.0;
+	if(!initldrings(star,lda))
+		return -31;
+	star->maxlight=0.0;
+	for(i=NLDRINGS-1;i>=0;i--)
+		star->maxlight+=PI*star->ringr[i]*star->ringr[i]*star->dintensity[i];
+	star->rsq=star->r*star->r;
+	star->area=PI*star->rsq;
+	star->brightnessfactor=1.0;
+
+	for(i=0;i<numplanets;i++)
+	{
+		double cw90,sw90,st,ct,sf,cf,p;
+		planet[i].rsq*=star->rsq;
+		planet[i].r=sqrt(planet[i].rsq);
+		planet[i].area=PI*planet[i].rsq;
+		planet[i].orbitsemimajor=pow(ppdays/365.24218967,2.0/3.0)*pow(stardensity,1.0/3.0)*214.939469384;
+#		if !QUIET
+			printf("planet %i orbit semimajor axis= %lf\n",i,planet[i].orbitsemimajor);
+#		endif
+		cw90=cos(planet[i].orbitangleomega-PIo2);
+		sw90=sin(planet[i].orbitangleomega-PIo2);
+		ct=cos(planet[i].thetaorbit);
+		st=sin(planet[i].thetaorbit);
+		cf=cos(planet[i].phiorbit);
+		sf=sin(planet[i].phiorbit);
+		p=sqrt(st*st*sf*sf+ct*ct);
+		planet[i].xhat[0]=cw90*p;
+		planet[i].xhat[1]=(sw90*ct-cw90*st*st*sf*cf)/p;
+		planet[i].xhat[2]=(-cw90*st*ct*cf-sw90*st*sf)/p;
+		planet[i].yhat[0]=(-sw90*p);
+		planet[i].yhat[1]=(sw90*st*st*sf*cf+cw90*ct)/p;
+		planet[i].yhat[2]=(sw90*st*ct*cf-cw90*st*sf)/p;
+		planetsetmiddleoftransit(planet,i);
+	}
+    i = 1;
+    printf("i %d\n", i);
+
+	numseeded=0;  //unless set below
+	return i;
+}
+
+
 int maintwo(char filename[])
 {
 	char rootname[64];
@@ -6876,6 +6682,8 @@ int maintwo(char filename[])
 	if(rootname[j-3]=='.'&&rootname[j-2]=='i'&&rootname[j-1]=='n')
 		rootname[j-3]=0;
 
+    printf("rootname %s\n", rootname);
+
 #	if DEBUGMCMC
 		char dbfn[64];
 		sprintf(dbfn,"%s_dbmcmc.txt",rootname);
@@ -6915,6 +6723,9 @@ int maintwo(char filename[])
 #	if !QUIET
 		printf("\npreinitializing lc data from %s (t: %lf - %lf)\n",filename,lcstarttime,lcfinishtime);
 #	endif
+
+    sprintf(filename, "%s", "model_lc.dat");
+
 	preinitializelcdata(filename,lcstarttime,lcfinishtime,lcmaxlight,&lcn,&lclightnorm);
 #	if !QUIET
 		printf("lcn= %i\nlclightnorm= %lf\n",lcn,lclightnorm);
@@ -6956,6 +6767,8 @@ int maintwo(char filename[])
 			printf("%i: %lf %lf %lf\n",i,lctime[i],lclight[i],lcuncertainty[i]);
 #	endif
 
+//    sprintf(filename, "%s", "output");
+
 	sprintf(filename,"%s_errstsp.txt",rootname);
 	outerr=fopen(filename,"w");
 	if(outerr==NULL)
@@ -6981,6 +6794,7 @@ int maintwo(char filename[])
 			printf("  memory used: %li\n done initializing precalcplanet\n",lcn*sizeof(tcircle)*MAXPLANETS+lcn*sizeof(int));
 #		endif
 #	endif
+
     if(j==1||j==6)
 	{
 #		if ANYPRINTVIS
@@ -6989,10 +6803,10 @@ int maintwo(char filename[])
 		outv=fopen(filename,"w");
 #		endif
 		pvasc=1; pvisc=10;
-		sprintf(seedfilename,"%s_lcout.txt",rootname);
+		sprintf(filename,"%s_lcout.txt",rootname);
 		setspots(readparam,spot,star,planet);
 		printf("generating light curve\n");
-		lcgen(star,planet,spot,lcn,lctime,lclight,lcuncertainty,lclightnorm,seedfilename);
+		lcgen(star,planet,spot,lcn,lctime,lclight,lcuncertainty,lclightnorm,filename);
 	}
 	fclose(outerr);
 //	free((void *)readparam);
