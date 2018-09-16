@@ -1,155 +1,114 @@
-#!/usr/bin/env python
-# Licensed under a 3-clause BSD style license - see LICENSE.rst
-
-import glob
-import os
+from setuptools import setup, Extension
+from setuptools.command.build_ext import build_ext
 import sys
-import numpy as np
-from setuptools import Extension
-from Cython.Build import cythonize
+import setuptools
 
-try:
-    from configparser import ConfigParser
-except ImportError:
-    from ConfigParser import ConfigParser
-
-# Get some values from the setup.cfg
-conf = ConfigParser()
-conf.read(['setup.cfg'])
-metadata = dict(conf.items('metadata'))
-
-PACKAGENAME = metadata.get('package_name', 'nagini')
-DESCRIPTION = metadata.get('description', 'Python wrapper for STSP')
-AUTHOR = metadata.get('author', 'Brett Morris, Leslie Hebb, Graeme Rohn, Jim Davenport')
-AUTHOR_EMAIL = metadata.get('author_email', '')
-LICENSE = metadata.get('license', 'unknown')
-URL = metadata.get('url', 'https://github.com/bmorris3/nagini')
-__minimum_python_version__ = metadata.get("minimum_python_version", "2.7")
-
-# Enforce Python version check - this is the same check as in __init__.py but
-# this one has to happen before importing ah_bootstrap.
-if sys.version_info < tuple((int(val) for val in __minimum_python_version__.split('.'))):
-    sys.stderr.write("ERROR: nagini requires Python {} or later\n".format(__minimum_python_version__))
-    sys.exit(1)
-
-# Import ah_bootstrap after the python version validation
-
-import ah_bootstrap
-from setuptools import setup
-
-# A dirty hack to get around some early import/configurations ambiguities
-if sys.version_info[0] >= 3:
-    import builtins
-else:
-    import __builtin__ as builtins
-builtins._ASTROPY_SETUP_ = True
-
-from astropy_helpers.setup_helpers import (register_commands, get_debug_option,
-                                           get_package_info)
-from astropy_helpers.git_helpers import get_git_devstr
-from astropy_helpers.version_helpers import generate_version_py
+__version__ = '0.0.1'
 
 
-# order of priority for long_description:
-#   (1) set in setup.cfg,
-#   (2) load LONG_DESCRIPTION.rst,
-#   (3) load README.rst,
-#   (4) package docstring
-readme_glob = 'README*'
-_cfg_long_description = metadata.get('long_description', '')
-if _cfg_long_description:
-    LONG_DESCRIPTION = _cfg_long_description
+class get_pybind_include(object):
+    """Helper class to determine the pybind11 include path
 
-elif os.path.exists('LONG_DESCRIPTION.rst'):
-    with open('LONG_DESCRIPTION.rst') as f:
-        LONG_DESCRIPTION = f.read()
+    The purpose of this class is to postpone importing pybind11
+    until it is actually installed, so that the ``get_include()``
+    method can be invoked. """
 
-elif len(glob.glob(readme_glob)) > 0:
-    with open(glob.glob(readme_glob)[0]) as f:
-        LONG_DESCRIPTION = f.read()
+    def __init__(self, user=False):
+        self.user = user
 
-else:
-    # Get the long description from the package's docstring
-    __import__(PACKAGENAME)
-    package = sys.modules[PACKAGENAME]
-    LONG_DESCRIPTION = package.__doc__
-
-# Store the package name in a built-in variable so it's easy
-# to get from other parts of the setup infrastructure
-builtins._ASTROPY_PACKAGE_NAME_ = PACKAGENAME
-
-# VERSION should be PEP440 compatible (http://www.python.org/dev/peps/pep-0440)
-VERSION = metadata.get('version', '0.0.dev0')
-
-# Indicates if this version is a release version
-RELEASE = 'dev' not in VERSION
-
-if not RELEASE:
-    VERSION += get_git_devstr(False)
-
-# Populate the dict of setup command overrides; this should be done before
-# invoking any other functionality from distutils since it can potentially
-# modify distutils' behavior.
-cmdclassd = register_commands(PACKAGENAME, VERSION, RELEASE)
-
-# Freeze build information in version.py
-generate_version_py(PACKAGENAME, VERSION, RELEASE,
-                    get_debug_option(PACKAGENAME))
-
-# Treat everything in scripts except README* as a script to be installed
-scripts = [fname for fname in glob.glob(os.path.join('scripts', '*'))
-           if not os.path.basename(fname).startswith('README')]
+    def __str__(self):
+        import pybind11
+        return pybind11.get_include(self.user)
 
 
-# Get configuration information from all of the various subpackages.
-# See the docstring for setup_helpers.update_package_files for more
-# details.
-package_info = get_package_info()
+ext_modules = [
+    # Extension(
+    #     'python_example',
+    #     ['src/main.cpp'],
+    #     include_dirs=[
+    #         # Path to pybind11 headers
+    #         get_pybind_include(),
+    #         get_pybind_include(user=True)
+    #     ],
+    #     language='c++'
+    # ),
+    Extension(
+        'python_example',
+        ['src/stsp.cpp'],
+        include_dirs=[
+            # Path to pybind11 headers
+            get_pybind_include(),
+            get_pybind_include(user=True)
+        ],
+        language='c++'
+    ),
+]
 
-# Add the project-global data
-package_info['package_data'].setdefault(PACKAGENAME, [])
-package_info['package_data'][PACKAGENAME].append('data/*')
 
-# Define entry points for command-line scripts
-entry_points = {'console_scripts': []}
+# As of Python 3.6, CCompiler has a `has_flag` method.
+# cf http://bugs.python.org/issue26689
+def has_flag(compiler, flagname):
+    """Return a boolean indicating whether a flag name is supported on
+    the specified compiler.
+    """
+    import tempfile
+    with tempfile.NamedTemporaryFile('w', suffix='.cpp') as f:
+        f.write('int main (int argc, char **argv) { return 0; }')
+        try:
+            compiler.compile([f.name], extra_postargs=[flagname])
+        except setuptools.distutils.errors.CompileError:
+            return False
+    return True
 
-if conf.has_section('entry_points'):
-    entry_point_list = conf.items('entry_points')
-    for entry_point in entry_point_list:
-        entry_points['console_scripts'].append('{0} = {1}'.format(
-            entry_point[0], entry_point[1]))
 
-# Include all .c files, recursively, including those generated by
-# Cython, since we can not do this in MANIFEST.in with a "dynamic"
-# directory name.
-c_files = []
-for root, dirs, files in os.walk(PACKAGENAME):
-    for filename in files:
-        if filename.endswith('.c'):
-            c_files.append(
-                os.path.join(
-                    os.path.relpath(root, PACKAGENAME), filename))
-package_info['package_data'][PACKAGENAME].extend(c_files)
+def cpp_flag(compiler):
+    """Return the -std=c++[11/14] compiler flag.
 
-# Note that requires and provides should not be included in the call to
-# ``setup``, since these are now deprecated. See this link for more details:
-# https://groups.google.com/forum/#!topic/astropy-dev/urYO8ckB2uM
+    The c++14 is prefered over c++11 (when it is available).
+    """
+    if has_flag(compiler, '-std=c++14'):
+        return '-std=c++14'
+    elif has_flag(compiler, '-std=c++11'):
+        return '-std=c++11'
+    else:
+        raise RuntimeError('Unsupported compiler -- at least C++11 support '
+                           'is needed!')
 
-setup(name=PACKAGENAME,
-      version=VERSION,
-      description=DESCRIPTION,
-      scripts=scripts,
-      install_requires=[s.strip() for s in metadata.get('install_requires', 'astropy').split(',')],
-      author=AUTHOR,
-      author_email=AUTHOR_EMAIL,
-      license=LICENSE,
-      url=URL,
-      long_description=LONG_DESCRIPTION,
-      cmdclass=cmdclassd,
-      zip_safe=False,
-      use_2to3=False,
-      entry_points=entry_points,
-      python_requires='>={}'.format(__minimum_python_version__),
-      # ext_modules=cythonize("nagini/overlap.pyx")
-      **package_info
+
+class BuildExt(build_ext):
+    """A custom build extension for adding compiler-specific options."""
+    c_opts = {
+        'msvc': ['/EHsc'],
+        'unix': [],
+    }
+
+    if sys.platform == 'darwin':
+        c_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7']
+
+    def build_extensions(self):
+        ct = self.compiler.compiler_type
+        opts = self.c_opts.get(ct, [])
+        if ct == 'unix':
+            opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
+            opts.append(cpp_flag(self.compiler))
+            if has_flag(self.compiler, '-fvisibility=hidden'):
+                opts.append('-fvisibility=hidden')
+        elif ct == 'msvc':
+            opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
+        for ext in self.extensions:
+            ext.extra_compile_args = opts
+        build_ext.build_extensions(self)
+
+setup(
+    name='python_example',
+    version=__version__,
+    author='Sylvain Corlay',
+    author_email='sylvain.corlay@gmail.com',
+    url='https://github.com/pybind/python_example',
+    description='A test project using pybind11',
+    long_description='',
+    ext_modules=ext_modules,
+    install_requires=['pybind11>=2.2'],
+    cmdclass={'build_ext': BuildExt},
+    zip_safe=False,
 )
