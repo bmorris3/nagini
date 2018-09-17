@@ -3,6 +3,9 @@
 #include <math.h>
 #include <time.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+
+namespace py = pybind11;
 
 #define QUIET 0				//0 -> prints things, 1 -> only prints errors
 #define QUIETMCMC 1			//0 -> mcmc prints as it goes, 1-> stays quiet (0 overridden by QUIET)
@@ -6640,13 +6643,15 @@ int initializestarplanetfileless(stardata *star,planetdata planet[MAXPLANETS],ch
 }
 
 
-int maintwo(char filename[])
+double maintwo(char filename[]) //, double spotparams[])
 {
 	char rootname[64];
 	char seedfilename[64];
 //    char rootname[64];
 
     double spotparams[6*3] = {0.382525700680, 2.026108848159, 0.744618637426, 0.290572978656, 1.727405120396, 1.570800631939, 0.301035942796, 1.315591006119, 2.163399563938, 0.213239119426, 1.844123549292, 3.372735964458, 0.292627124386, 1.100571758314, 4.248530337143, 0.300349989200, 1.963252856264, 5.492592578403};
+
+//    double spotparams[3] = {s1, s2, s3};
 
 //    double x[9] = {0.0, 1.0, 0.1, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0};
 
@@ -6695,11 +6700,11 @@ int maintwo(char filename[])
 
 //	readparam=(double *)malloc(MAXSPOTS*3*sizeof(double));
     readparam = spotparams;
-	if(readparam==NULL)
-	{
-		printf("malloc error\n");
-		return 0;
-	}
+//	if(readparam==NULL)
+//	{
+//		printf("malloc error\n");
+//		return 0;
+//	}
 #	if !QUIET
 		printf("initializing with parameters from %s\n",filename);
 #	endif
@@ -6714,11 +6719,11 @@ int maintwo(char filename[])
 		if(spotreport==NULL||ldspotreport==NULL)
 			j=(-28);
 #	endif
-	if(j<0)
-	{
-		printf("initializestarplanet error %i\n",j);
-		return 0;
-	}
+//	if(j<0)
+//	{
+//		printf("initializestarplanet error %i\n",j);
+//		return 0;
+//	}
 
 #	if !QUIET
 		printf("\npreinitializing lc data from %s (t: %lf - %lf)\n",filename,lcstarttime,lcfinishtime);
@@ -6733,11 +6738,11 @@ int maintwo(char filename[])
 	lctime=(double *)malloc(lcn*sizeof(double));
 	lclight=(double *)malloc(lcn*sizeof(double));
 	lcuncertainty=(double *)malloc(lcn*sizeof(double));
-	if(lctime==NULL||lclight==NULL||lcuncertainty==NULL)
-	{
-		printf("malloc error\n");
-		return 0;
-	}
+//	if(lctime==NULL||lclight==NULL||lcuncertainty==NULL)
+//	{
+//		printf("malloc error\n");
+//		return 0;
+//	}
 #	if !QUIET
 		printf("initializing lc data\n");
 #	endif
@@ -6749,15 +6754,15 @@ int maintwo(char filename[])
 #	if !QUIET
 		printf("memory used for initialization: (%li+%li) = %li\n",memused[0],memused[1],memused[0]+memused[1]);
 #	endif
-	if(i<0)
-	{
-		printf("initialization error %i\n\n",i);
-		return 0;
-	}
-#	if !QUIET
-		else
-			printf("initialization complete\n\n");
-#	endif
+//	if(i<0)
+//	{
+//		printf("initialization error %i\n\n",i);
+//		return 0;
+//	}
+//#	if !QUIET
+//		else
+//			printf("initialization complete\n\n");
+//#	endif
 
 #	if !QUIET
 		for(i=0;i<2;i++)
@@ -6795,19 +6800,18 @@ int maintwo(char filename[])
 #		endif
 #	endif
 
-    if(j==1||j==6)
-	{
-#		if ANYPRINTVIS
-		PRINTVIS=WHICHPRINTVIS;
-		sprintf(filename,"%s_vis.txt",rootname);
-		outv=fopen(filename,"w");
-#		endif
-		pvasc=1; pvisc=10;
-		sprintf(filename,"%s_lcout.txt",rootname);
-		setspots(readparam,spot,star,planet);
-		printf("generating light curve\n");
-		lcgen(star,planet,spot,lcn,lctime,lclight,lcuncertainty,lclightnorm,filename);
-	}
+#	if ANYPRINTVIS
+    PRINTVIS=WHICHPRINTVIS;
+    sprintf(filename,"%s_vis.txt",rootname);
+    outv=fopen(filename,"w");
+#	endif
+    pvasc=1; pvisc=10;
+    sprintf(filename,"%s_lcout.txt",rootname);
+    setspots(readparam,spot,star,planet);
+    printf("generating light curve\n");
+    lcgen(star,planet,spot,lcn,lctime,lclight,lcuncertainty,lclightnorm,filename);
+	return lclight[0]/lclightnorm;
+
 	fclose(outerr);
 //	free((void *)readparam);
 	free((void *)lctime);
@@ -6823,15 +6827,11 @@ int maintwo(char filename[])
 #	if XYZDETAILS
 		fclose(xyzdetail);
 #	endif
-
-	return 0;
 }
 
 int add(int i, int j) {
     return i + j;
 }
-
-namespace py = pybind11;
 
 PYBIND11_MODULE(python_example, m) {
     m.doc() = R"pbdoc(
